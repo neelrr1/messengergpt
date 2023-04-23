@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use axum::{extract::Query, http::StatusCode, routing::get, Json, Router};
 use ngrok::{prelude::TunnelBuilder, tunnel::UrlTunnel};
-use types::{OutgoingMessage, WebhookPayload};
+use types::{OpenAIMessage, OpenAIRequest, OpenAIResponse, OutgoingMessage, WebhookPayload};
 
 use crate::types::{Message, MessagingType, Recipient};
 
@@ -10,11 +10,17 @@ use dotenv;
 
 mod types;
 
+#[macro_use]
+extern crate lazy_static;
+
 const PORT: i32 = 8080;
+lazy_static! {
+    static ref HTTP_CLIENT: reqwest::Client = reqwest::Client::new();
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // build our application with a single route
+    // Load .env variables
     dotenv::dotenv().ok();
 
     let app = Router::new()
@@ -80,12 +86,11 @@ async fn send_response(
         },
         message: Message {
             mid: None,
-            text: generate_response(&incoming_message.text).await,
+            text: generate_response(&incoming_message.text).await?,
         },
     };
 
-    let client = reqwest::Client::new();
-    client
+    HTTP_CLIENT
         .post("https://graph.facebook.com/v2.6/me/messages")
         .query(&[("access_token", dotenv::var("PAGE_ACCESS_TOKEN").unwrap())])
         .json(&body)
@@ -94,9 +99,29 @@ async fn send_response(
     Ok(())
 }
 
-// TODO: Generate response using ChatGPT
-async fn generate_response(query: &String) -> String {
-    query.to_owned()
+async fn generate_response(query: &str) -> Result<String, reqwest::Error> {
+    let res = HTTP_CLIENT
+        .post("https://api.openai.com/v1/chat/completions")
+        .bearer_auth(dotenv::var("OPENAI_KEY").unwrap())
+        .json(&OpenAIRequest {
+            model: "gpt-3.5-turbo".to_string(),
+            messages: vec![OpenAIMessage {
+                role: "user".to_string(),
+                content: query.to_string(),
+            }],
+        })
+        .send()
+        .await?;
+
+    Ok(res
+        .json::<OpenAIResponse>()
+        .await?
+        .choices
+        .first()
+        .unwrap()
+        .message
+        .content
+        .to_owned())
 }
 
 async fn verify_webhook(params: Query<HashMap<String, String>>) -> Result<String, StatusCode> {
