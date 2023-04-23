@@ -94,12 +94,12 @@ async fn post_webhook(Json(body): Json<WebhookPayload>) -> Result<String, Status
         .as_millis()
         - event.timestamp
         > FIVE_MINS_MILLIS;
+    let res = send_response(&event.sender.id, &event.message).await;
     if !is_old
-        && send_response(&event.sender.id, &event.message)
-            .await
+        && res
             .is_err()
     {
-        println!("Error processing webhook event!");
+        println!("Error processing webhook event!\n{}", res.err().unwrap());
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
     Ok("Message received!".to_string())
