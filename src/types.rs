@@ -15,6 +15,7 @@ pub struct Entry {
 pub struct IncomingMessage {
     pub sender: Sender,
     pub recipient: Recipient,
+    pub timestamp: u128,
     pub message: Message,
 }
 
@@ -44,6 +45,7 @@ pub struct Recipient {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Message {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub mid: Option<String>,
     pub text: String,
 }
