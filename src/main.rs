@@ -17,15 +17,13 @@ use types::{OpenAIMessage, OpenAIRequest, OpenAIResponse, OutgoingMessage, Webho
 
 use crate::types::{Message, MessagingType, Recipient};
 
-use dotenv;
-
 mod types;
 
 #[macro_use]
 extern crate lazy_static;
 
 const FIVE_MINS_MILLIS: u128 = 1000 * 60 * 5;
-const PORT: i32 = 8080;
+const PORT: i32 = 80;
 lazy_static! {
     static ref HTTP_CLIENT: reqwest::Client = reqwest::Client::new();
 }
